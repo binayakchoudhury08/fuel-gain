@@ -59,12 +59,11 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
     [];
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(defaultProductIds);
 
-  // Step 3: Tanks and KL Capacities per product
-  const [tanksPerProduct, setTanksPerProduct] = useState<Record<string, { tankCount: number; capacityKl: number }>>(() => {
-    if (profile?.tanksPerProduct) return profile.tanksPerProduct;
-    const init: Record<string, { tankCount: number; capacityKl: number }> = {};
+  // Step 3: Tanks and per-tank KL Capacities
+  const [tanksPerProduct, setTanksPerProduct] = useState<Record<string, { tankCount: number; tankCapacities: Record<number, number> }>>(() => {
+    const init: Record<string, { tankCount: number; tankCapacities: Record<number, number> }> = {};
     defaultProductIds.forEach((id: string) => {
-      init[id] = { tankCount: 1, capacityKl: 20 }; // Default: 1 Tank of 20 KL
+      init[id] = { tankCount: 1, tankCapacities: { 1: 20 } }; // Default 1 Tank of 20 KL
     });
     return init;
   });
@@ -140,23 +139,35 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
   };
 
   const handleTankCountChange = (productId: string, tankCount: number) => {
-    setTanksPerProduct((prev) => ({
-      ...prev,
-      [productId]: {
-        tankCount,
-        capacityKl: prev[productId]?.capacityKl || 20,
-      },
-    }));
+    setTanksPerProduct((prev) => {
+      const currentCaps = { ...(prev[productId]?.tankCapacities || { 1: 20 }) };
+      for (let i = 1; i <= tankCount; i++) {
+        if (!currentCaps[i]) currentCaps[i] = currentCaps[1] || 20;
+      }
+      return {
+        ...prev,
+        [productId]: {
+          tankCount,
+          tankCapacities: currentCaps,
+        },
+      };
+    });
   };
 
-  const handleCapacityKlChange = (productId: string, capacityKl: number) => {
-    setTanksPerProduct((prev) => ({
-      ...prev,
-      [productId]: {
-        tankCount: prev[productId]?.tankCount || 1,
-        capacityKl: capacityKl > 0 ? capacityKl : 20,
-      },
-    }));
+  const handleTankCapacityChange = (productId: string, tankNum: number, capacityKl: number) => {
+    setTanksPerProduct((prev) => {
+      const current = prev[productId] || { tankCount: 1, tankCapacities: { 1: 20 } };
+      return {
+        ...prev,
+        [productId]: {
+          ...current,
+          tankCapacities: {
+            ...current.tankCapacities,
+            [tankNum]: capacityKl > 0 ? capacityKl : 20,
+          },
+        },
+      };
+    });
   };
 
   const handleFinishSetup = () => {
@@ -191,16 +202,17 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
   const allTankInstances: TankConfig[] = useMemo(() => {
     const instances: TankConfig[] = [];
     selectedProductsList.forEach((prod) => {
-      const config = tanksPerProduct[prod.id] || { tankCount: 1, capacityKl: 20 };
+      const config = tanksPerProduct[prod.id] || { tankCount: 1, tankCapacities: { 1: 20 } };
       for (let i = 1; i <= config.tankCount; i++) {
+        const capacity = config.tankCapacities?.[i] || 20;
         instances.push({
           tankId: `${prod.id}_tank_${i}`,
           productId: prod.id,
           productName: prod.name,
           tankNumber: i,
           tankName: `${prod.name} - Tank ${i}`,
-          capacityKl: config.capacityKl,
-          capacityLitres: config.capacityKl * 1000,
+          capacityKl: capacity,
+          capacityLitres: capacity * 1000,
         });
       }
     });
@@ -416,8 +428,8 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {selectedProductsList.map((prod) => {
-              const currentConfig = tanksPerProduct[prod.id] || { tankCount: 1, capacityKl: 20 };
-              const totalKl = currentConfig.tankCount * currentConfig.capacityKl;
+              const currentConfig = tanksPerProduct[prod.id] || { tankCount: 1, tankCapacities: { 1: 20 } };
+              const totalKl = Object.values(currentConfig.tankCapacities || {}).reduce((sum, val) => sum + (val || 0), 0);
 
               return (
                 <div
@@ -449,7 +461,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
                           {prod.name}
                         </h4>
                         <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', fontWeight: 700 }}>
-                          {currentConfig.tankCount} Tank{currentConfig.tankCount > 1 ? 's' : ''} • Total Capacity: {totalKl} KL ({(totalKl * 1000).toLocaleString()} Litres)
+                          {currentConfig.tankCount} Tank{currentConfig.tankCount > 1 ? 's' : ''} • Total Storage: {totalKl} KL ({(totalKl * 1000).toLocaleString()} Litres)
                         </span>
                       </div>
                     </div>
@@ -487,47 +499,63 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
                     </div>
                   </div>
 
-                  {/* Capacity per Tank in KL */}
-                  <div>
-                    <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary)', display: 'block', marginBottom: '8px' }}>
-                      Capacity per Tank (in KL - Kilolitres):
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <MD3Input
-                        label="Capacity per Tank (in KL)"
-                        type="number"
-                        placeholder="e.g. 20"
-                        value={currentConfig.capacityKl || ''}
-                        onChange={(e) => handleCapacityKlChange(prod.id, parseFloat(e.target.value) || 0)}
-                        style={{ marginBottom: 0 }}
-                      />
-                      <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-primary)', whiteSpace: 'nowrap', marginTop: '24px' }}>
-                        KL
-                      </span>
-                    </div>
+                  {/* Individual Capacity per Tank in KL */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {Array.from({ length: currentConfig.tankCount }, (_, idx) => idx + 1).map((tankNum) => {
+                      const tankCap = currentConfig.tankCapacities?.[tankNum] || 20;
 
-                    {/* Quick Presets */}
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                      {[10, 15, 20, 45].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => handleCapacityKlChange(prod.id, preset)}
+                      return (
+                        <div
+                          key={tankNum}
                           style={{
-                            padding: '4px 12px',
+                            padding: '12px',
                             borderRadius: '12px',
-                            border: currentConfig.capacityKl === preset ? '1.5px solid var(--color-primary)' : '1px solid var(--color-card-border)',
-                            backgroundColor: currentConfig.capacityKl === preset ? 'var(--color-primary-container)' : 'var(--color-surface)',
-                            color: currentConfig.capacityKl === preset ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
+                            backgroundColor: 'var(--color-surface)',
+                            border: '1px solid var(--color-card-border)',
                           }}
                         >
-                          {preset} KL
-                        </button>
-                      ))}
-                    </div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-primary)', display: 'block', marginBottom: '6px' }}>
+                            {prod.name} - Tank {tankNum} Capacity (in KL):
+                          </label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <MD3Input
+                              label={`${prod.name} Tank ${tankNum} Capacity`}
+                              type="number"
+                              placeholder="e.g. 20"
+                              value={tankCap || ''}
+                              onChange={(e) => handleTankCapacityChange(prod.id, tankNum, parseFloat(e.target.value) || 0)}
+                              style={{ marginBottom: 0 }}
+                            />
+                            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-primary)', whiteSpace: 'nowrap', marginTop: '24px' }}>
+                              KL
+                            </span>
+                          </div>
+
+                          {/* Quick Presets */}
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                            {[10, 15, 20, 25, 35, 45].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => handleTankCapacityChange(prod.id, tankNum, preset)}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '10px',
+                                  border: tankCap === preset ? '1.5px solid var(--color-primary)' : '1px solid var(--color-card-border)',
+                                  backgroundColor: tankCap === preset ? 'var(--color-primary-container)' : 'var(--color-surface-variant)',
+                                  color: tankCap === preset ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {preset} KL
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
