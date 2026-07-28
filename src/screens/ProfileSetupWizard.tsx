@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Building2,
@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   FileCheck,
   Zap,
+  Database,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { MD3Card } from '../components/MD3Card';
@@ -20,13 +21,14 @@ import { MD3Input } from '../components/MD3Input';
 import { ProgressBar } from '../components/ProgressBar';
 import { DipChartUploadCard } from '../components/DipChartUploadCard';
 import { PETROL_COMPANIES, COMPANY_PRODUCTS_MAP } from '../constants/companyProducts';
-import type { PetrolCompanyCode, DipChartFile } from '../types';
+import type { PetrolCompanyCode, DipChartFile, TankConfig } from '../types';
 import type { RootState } from '../storage/reduxStore';
 import { supabaseSyncService } from '../services/supabaseSyncService';
 import {
   updatePersonalDetails,
   updatePumpDetails,
   updateSelectedProducts,
+  updateTankConfigs,
   addDipChart,
   completeOnboarding,
 } from '../storage/slices/userSlice';
@@ -40,7 +42,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
   const profile = useSelector((state: RootState) => state.user.profile);
 
   const [step, setStep] = useState<number>(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   // Form states
   const [fullName, setFullName] = useState<string>(profile?.fullName || '');
@@ -56,6 +58,16 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
     COMPANY_PRODUCTS_MAP[pumpCompany]?.map((p) => p.id) ||
     [];
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(defaultProductIds);
+
+  // Step 3: Tanks and KL Capacities per product
+  const [tanksPerProduct, setTanksPerProduct] = useState<Record<string, { tankCount: number; capacityKl: number }>>(() => {
+    if (profile?.tanksPerProduct) return profile.tanksPerProduct;
+    const init: Record<string, { tankCount: number; capacityKl: number }> = {};
+    defaultProductIds.forEach((id: string) => {
+      init[id] = { tankCount: 1, capacityKl: 20 }; // Default: 1 Tank of 20 KL
+    });
+    return init;
+  });
 
   // Step 3: Dip charts
   const [dipCharts, setDipCharts] = useState<Record<string, DipChartFile>>(
@@ -97,7 +109,9 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
       setErrors({});
       dispatch(updateSelectedProducts(selectedProductIds));
     } else if (step === 3) {
-      // Trigger celebratory confetti on reaching step 4
+      dispatch(updateTankConfigs(allTankInstances));
+    } else if (step === 4) {
+      // Trigger celebratory confetti on reaching step 5
       try {
         confetti({
           particleCount: 100,
@@ -125,26 +139,31 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
     }
   };
 
-  const handleFileUpload = (dipChart: DipChartFile) => {
-    setDipCharts((prev) => ({
+  const handleTankCountChange = (productId: string, tankCount: number) => {
+    setTanksPerProduct((prev) => ({
       ...prev,
-      [dipChart.productId]: dipChart,
+      [productId]: {
+        tankCount,
+        capacityKl: prev[productId]?.capacityKl || 20,
+      },
     }));
-    dispatch(addDipChart(dipChart));
   };
 
-  const handleFileRemove = (productId: string) => {
-    setDipCharts((prev) => {
-      const next = { ...prev };
-      delete next[productId];
-      return next;
-    });
+  const handleCapacityKlChange = (productId: string, capacityKl: number) => {
+    setTanksPerProduct((prev) => ({
+      ...prev,
+      [productId]: {
+        tankCount: prev[productId]?.tankCount || 1,
+        capacityKl: capacityKl > 0 ? capacityKl : 20,
+      },
+    }));
   };
 
   const handleFinishSetup = () => {
     dispatch(updatePersonalDetails({ fullName }));
     dispatch(updatePumpDetails({ pumpName, pumpCompany, pumpAddress }));
     dispatch(updateSelectedProducts(selectedProductIds));
+    dispatch(updateTankConfigs(allTankInstances));
     dispatch(completeOnboarding());
 
     const updatedProfile = {
@@ -155,8 +174,9 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
       pumpCompany,
       pumpAddress,
       selectedProductIds,
+      tankConfigs: allTankInstances,
       nozzleCounts: profile?.nozzleCounts || {},
-      dipChartsUploaded: profile?.dipChartsUploaded || {},
+      dipChartsUploaded: dipCharts,
       isOnboarded: true,
     };
     supabaseSyncService.syncProfileToSupabase(updatedProfile);
@@ -167,6 +187,25 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
   const selectedProductsList = availableProducts.filter((p) =>
     selectedProductIds.includes(p.id)
   );
+
+  const allTankInstances: TankConfig[] = useMemo(() => {
+    const instances: TankConfig[] = [];
+    selectedProductsList.forEach((prod) => {
+      const config = tanksPerProduct[prod.id] || { tankCount: 1, capacityKl: 20 };
+      for (let i = 1; i <= config.tankCount; i++) {
+        instances.push({
+          tankId: `${prod.id}_tank_${i}`,
+          productId: prod.id,
+          productName: prod.name,
+          tankNumber: i,
+          tankName: `${prod.name} - Tank ${i}`,
+          capacityKl: config.capacityKl,
+          capacityLitres: config.capacityKl * 1000,
+        });
+      }
+    });
+    return instances;
+  }, [selectedProductsList, tanksPerProduct]);
 
   return (
     <div
@@ -200,8 +239,9 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
           {step === 1 && 'Station & Owner Setup'}
           {step === 2 && 'Select Fuel Products'}
-          {step === 3 && 'Upload Dip Charts'}
-          {step === 4 && 'All Set & Ready!'}
+          {step === 3 && 'Underground Storage Tanks (KL)'}
+          {step === 4 && 'Upload Tank Dip Charts'}
+          {step === 5 && 'All Set & Ready!'}
         </h1>
         <p style={{ fontSize: '0.88rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
           Step {step} of {totalSteps} — Configure your fuel station parameters for accurate gain/loss analysis
@@ -368,27 +408,178 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
       {step === 3 && (
         <MD3Card variant="elevated" style={{ padding: '24px' }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '6px', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileCheck size={20} color="var(--color-primary)" /> Upload Tank Calibration Dip Charts
+            <Database size={20} color="var(--color-primary)" /> Underground Storage Tanks & KL Capacities
           </h2>
-          <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
-            Upload PDF dip chart reference files for selected products to enable automated dip to volume conversion.
+          <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '20px' }}>
+            Configure how many tanks each product has and set tank storage capacities strictly in <strong>Kilolitres (KL)</strong>.
           </p>
 
-          <div>
-            {selectedProductsList.map((prod) => (
-              <DipChartUploadCard
-                key={prod.id}
-                product={prod}
-                uploadedFile={dipCharts[prod.id]}
-                onFileUpload={handleFileUpload}
-                onFileRemove={() => handleFileRemove(prod.id)}
-              />
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {selectedProductsList.map((prod) => {
+              const currentConfig = tanksPerProduct[prod.id] || { tankCount: 1, capacityKl: 20 };
+              const totalKl = currentConfig.tankCount * currentConfig.capacityKl;
+
+              return (
+                <div
+                  key={prod.id}
+                  style={{
+                    padding: '18px',
+                    borderRadius: '16px',
+                    backgroundColor: 'var(--color-surface-variant)',
+                    border: '1.5px solid var(--color-card-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div
+                        style={{
+                          padding: '8px',
+                          borderRadius: '10px',
+                          backgroundColor: 'var(--color-primary-container)',
+                          color: 'var(--color-primary)',
+                        }}
+                      >
+                        <Fuel size={20} />
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                          {prod.name}
+                        </h4>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)', fontWeight: 700 }}>
+                          {currentConfig.tankCount} Tank{currentConfig.tankCount > 1 ? 's' : ''} • Total Capacity: {totalKl} KL ({(totalKl * 1000).toLocaleString()} Litres)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tank Count Selector */}
+                  <div>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary)', display: 'block', marginBottom: '8px' }}>
+                      Number of Underground Tanks (USTs) for {prod.name}:
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {[1, 2, 3, 4].map((count) => {
+                        const isSelected = currentConfig.tankCount === count;
+                        return (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => handleTankCountChange(prod.id, count)}
+                            style={{
+                              flex: 1,
+                              padding: '10px 12px',
+                              borderRadius: '10px',
+                              border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-card-border)',
+                              backgroundColor: isSelected ? 'var(--color-primary-container)' : 'var(--color-surface)',
+                              color: isSelected ? 'var(--color-primary)' : 'var(--color-text-primary)',
+                              fontSize: '0.85rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {count} Tank{count > 1 ? 's' : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Capacity per Tank in KL */}
+                  <div>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary)', display: 'block', marginBottom: '8px' }}>
+                      Capacity per Tank (in KL - Kilolitres):
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <MD3Input
+                        label="Capacity per Tank (in KL)"
+                        type="number"
+                        placeholder="e.g. 20"
+                        value={currentConfig.capacityKl || ''}
+                        onChange={(e) => handleCapacityKlChange(prod.id, parseFloat(e.target.value) || 0)}
+                        style={{ marginBottom: 0 }}
+                      />
+                      <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-primary)', whiteSpace: 'nowrap', marginTop: '24px' }}>
+                        KL
+                      </span>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                      {[10, 15, 20, 45].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleCapacityKlChange(prod.id, preset)}
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            border: currentConfig.capacityKl === preset ? '1.5px solid var(--color-primary)' : '1px solid var(--color-card-border)',
+                            backgroundColor: currentConfig.capacityKl === preset ? 'var(--color-primary-container)' : 'var(--color-surface)',
+                            color: currentConfig.capacityKl === preset ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {preset} KL
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </MD3Card>
       )}
 
       {step === 4 && (
+        <MD3Card variant="elevated" style={{ padding: '24px' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '6px', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileCheck size={20} color="var(--color-primary)" /> Upload Tank Calibration Dip Charts
+          </h2>
+          <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
+            Upload PDF calibration dip chart reference files for each configured tank ({allTankInstances.length} total tanks).
+          </p>
+
+          <div>
+            {allTankInstances.map((tank) => {
+              const productObj = availableProducts.find((p) => p.id === tank.productId) || {
+                id: tank.productId,
+                name: tank.productName,
+                code: tank.productId,
+              };
+
+              return (
+                <DipChartUploadCard
+                  key={tank.tankId}
+                  product={productObj}
+                  tankName={tank.tankName}
+                  capacityKl={tank.capacityKl}
+                  uploadedFile={dipCharts[tank.tankId] || dipCharts[tank.productId]}
+                  onFileUpload={(file) => {
+                    const tankFile = { ...file, tankId: tank.tankId, tankName: tank.tankName, capacityKl: tank.capacityKl };
+                    setDipCharts((prev) => ({ ...prev, [tank.tankId]: tankFile }));
+                    dispatch(addDipChart(tankFile));
+                  }}
+                  onFileRemove={() => {
+                    setDipCharts((prev) => {
+                      const next = { ...prev };
+                      delete next[tank.tankId];
+                      return next;
+                    });
+                  }}
+                />
+              );
+            })}
+          </div>
+        </MD3Card>
+      )}
+
+      {step === 5 && (
         <MD3Card variant="elevated" style={{ padding: '28px', textAlign: 'center' }}>
           <div
             style={{
@@ -411,7 +602,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '24px' }}>
             Your station <strong>{pumpName}</strong> ({pumpCompany}) has been configured with{' '}
-            <strong>{selectedProductIds.length} active products</strong>.
+            <strong>{allTankInstances.length} tanks</strong> across {selectedProductIds.length} fuel products.
           </p>
 
           <div
@@ -436,15 +627,15 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
               <strong style={{ color: 'var(--color-text-primary)' }}>{pumpCompany}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--color-text-muted)' }}>Configured Products:</span>
+              <span style={{ color: 'var(--color-text-muted)' }}>Configured Tanks:</span>
               <strong style={{ color: 'var(--color-primary)' }}>
-                {selectedProductsList.map((p) => p.name).join(', ')}
+                {allTankInstances.length} Tanks ({allTankInstances.reduce((sum, t) => sum + t.capacityKl, 0)} KL Total)
               </strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--color-text-muted)' }}>Dip Charts Uploaded:</span>
               <strong style={{ color: 'var(--color-success)' }}>
-                {Object.keys(dipCharts).length} / {selectedProductsList.length} files
+                {Object.keys(dipCharts).length} / {allTankInstances.length} tank files
               </strong>
             </div>
           </div>
@@ -462,7 +653,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
       )}
 
       {/* Navigation Footer */}
-      {step < 4 && (
+      {step < 5 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '8px' }}>
           {step > 1 ? (
             <MD3Button variant="outline" onClick={handlePrevStep} leftIcon={<ArrowLeft size={18} />}>
@@ -473,7 +664,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({ onWizard
           )}
 
           <MD3Button variant="primary" onClick={handleNextStep} rightIcon={<ArrowRight size={18} />}>
-            {step === 3 ? 'Review & Complete' : 'Continue'}
+            {step === 4 ? 'Review & Complete' : 'Continue'}
           </MD3Button>
         </div>
       )}

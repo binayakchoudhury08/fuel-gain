@@ -15,6 +15,17 @@ export interface FuelProduct {
   companyCode?: PetrolCompanyCode;
 }
 
+export interface TankConfig {
+  tankId: string;
+  productId: string;
+  productName: string;
+  tankNumber: number;
+  tankName: string;
+  capacityKl: number; // Capacity in Kilolitres (KL)
+  capacityLitres: number; // Capacity in Litres
+  dipChart?: DipChartFile;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -25,6 +36,8 @@ export interface UserProfile {
   pumpCompany?: PetrolCompanyCode;
   pumpAddress?: string;
   selectedProductIds?: string[];
+  tankConfigs?: TankConfig[];
+  tanksPerProduct?: Record<string, { tankCount: number; capacityKl: number }>;
   nozzleCounts?: Record<string, number>;
   dipChartsUploaded?: Record<string, DipChartFile>;
   createdAt?: string;
@@ -42,6 +55,7 @@ export interface DipChartMetadata {
   lengthCm?: number;
   radiusCm?: number;
   capacityLitres?: number;
+  capacityKl?: number;
   companyName?: string;
   regionalOffice?: string;
   outletName?: string;
@@ -52,6 +66,9 @@ export interface DipChartMetadata {
 export interface DipChartFile {
   productId: string;
   productName: string;
+  tankId?: string;
+  tankName?: string;
+  capacityKl?: number;
   fileName: string;
   fileSize: number;
   uploadedAt: string;

@@ -7,6 +7,8 @@ import { DipChartPreviewModal } from './DipChartPreviewModal';
 
 interface DipChartUploadCardProps {
   product: FuelProduct;
+  tankName?: string;
+  capacityKl?: number;
   uploadedFile?: DipChartFile;
   onFileUpload: (file: DipChartFile) => void;
   onFileRemove: () => void;
@@ -14,6 +16,8 @@ interface DipChartUploadCardProps {
 
 export const DipChartUploadCard: React.FC<DipChartUploadCardProps> = ({
   product,
+  tankName,
+  capacityKl,
   uploadedFile,
   onFileUpload,
   onFileRemove,
@@ -46,11 +50,17 @@ export const DipChartUploadCard: React.FC<DipChartUploadCardProps> = ({
       const dipChart: DipChartFile = {
         productId: product.id,
         productName: product.name,
+        tankName,
+        capacityKl,
         fileName: file.name,
         fileSize: file.size,
         uploadedAt: new Date().toLocaleDateString(),
         fileUrl: URL.createObjectURL(file),
-        metadata,
+        metadata: {
+          ...metadata,
+          capacityKl,
+          capacityLitres: capacityKl ? capacityKl * 1000 : metadata?.capacityLitres,
+        },
         calibrationTable,
       };
 
@@ -97,10 +107,10 @@ export const DipChartUploadCard: React.FC<DipChartUploadCardProps> = ({
             </div>
             <div>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                {product.name}
+                {tankName || product.name}
               </h4>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                Tank Dip Chart Reference (PDF Only)
+                {capacityKl ? `Storage Capacity: ${capacityKl} KL (${(capacityKl * 1000).toLocaleString()} Litres)` : 'Tank Dip Chart Reference (PDF Only)'}
               </span>
             </div>
           </div>

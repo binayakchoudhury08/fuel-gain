@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { UserProfile, DipChartFile, PetrolCompanyCode } from '../../types';
+import type { UserProfile, DipChartFile, PetrolCompanyCode, TankConfig } from '../../types';
 import { accountStorage } from '../accountStorage';
 
 interface UserState {
@@ -80,6 +80,12 @@ export const userSlice = createSlice({
         accountStorage.saveAccountProfile(state.profile);
       }
     },
+    updateTankConfigs: (state, action: PayloadAction<TankConfig[]>) => {
+      if (state.profile) {
+        state.profile.tankConfigs = action.payload;
+        accountStorage.saveAccountProfile(state.profile);
+      }
+    },
     updateNozzleCounts: (state, action: PayloadAction<Record<string, number>>) => {
       if (state.profile) {
         state.profile.nozzleCounts = {
@@ -123,6 +129,7 @@ export const {
   updatePersonalDetails,
   updatePumpDetails,
   updateSelectedProducts,
+  updateTankConfigs,
   updateNozzleCounts,
   addDipChart,
   completeOnboarding,
