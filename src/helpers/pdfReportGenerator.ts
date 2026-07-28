@@ -293,11 +293,68 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   return doc;
 }
 
+import html2canvas from 'html2canvas';
+
+// Export DOM element directly to high-definition PDF
+export async function exportHtmlCardToPdf(elementId: string, fileName: string): Promise<boolean> {
+  const element = document.getElementById(elementId);
+  if (!element) return false;
+
+  try {
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      logging: false,
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const imgWidth = 210;
+    const pageHeight = 297;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
+
+    const isNativeMobile = typeof window !== 'undefined' && (!!(window as any).Capacitor?.isNativePlatform?.() || !!(window as any).Capacitor?.platform);
+    if (isNativeMobile) {
+      pdf.save(fileName);
+    } else {
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+    return true;
+  } catch (err) {
+    console.error('html2canvas export error:', err);
+    return false;
+  }
+}
+
 // Download PDF helper
 export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile | null) {
   try {
     const doc = generatePdfDoc(entry, profile);
     const fileName = `FuelGain_Report_${entry?.date || 'date'}_${entry?.productId || 'product'}.pdf`;
+
+    // Try HTML canvas export if rendered in DOM
+    const cardEl = document.getElementById('pdf-audit-report-card');
+    if (cardEl) {
+      exportHtmlCardToPdf('pdf-audit-report-card', fileName);
+      return;
+    }
 
     // On Capacitor Android / Native Mobile App
     const isNativeMobile = typeof window !== 'undefined' && (!!(window as any).Capacitor?.isNativePlatform?.() || !!(window as any).Capacitor?.platform);

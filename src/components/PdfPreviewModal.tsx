@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Share2, Printer, FileText, ExternalLink } from 'lucide-react';
 import { MD3Button } from './MD3Button';
 import type { ProductDailyEntry, UserProfile } from '../types';
-import { downloadPdfReport, getPdfBlobUrl, getPdfDataUrl, sharePdfReport } from '../helpers/pdfReportGenerator';
+import { downloadPdfReport, getPdfBlobUrl, getPdfDataUrl, sharePdfReport, exportHtmlCardToPdf } from '../helpers/pdfReportGenerator';
 
 interface PdfPreviewModalProps {
   entry: ProductDailyEntry | null;
@@ -34,8 +34,12 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
 
   const pdfDataUrl = getPdfDataUrl(entry, profile);
 
-  const handleDownload = () => {
-    downloadPdfReport(entry, profile);
+  const handleDownload = async () => {
+    const fileName = `FuelGain_Report_${entry.date}_${entry.productId}.pdf`;
+    const ok = await exportHtmlCardToPdf('pdf-audit-report-card', fileName);
+    if (!ok) {
+      downloadPdfReport(entry, profile);
+    }
     setNotice('PDF Report downloaded successfully!');
     setTimeout(() => setNotice(null), 3000);
   };
@@ -49,12 +53,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
   };
 
   const handlePrint = () => {
-    if (blobUrl) {
-      const win = window.open(blobUrl, '_blank');
-      win?.print();
-    } else {
-      downloadPdfReport(entry, profile);
-    }
+    window.print();
   };
 
   const handleOpenExternal = () => {
@@ -163,7 +162,24 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
 
         {/* Modal PDF Live Printable Document Preview */}
         <div style={{ flex: 1, backgroundColor: '#323639', padding: '16px', overflowY: 'auto' }}>
+          <style>{`
+            @media print {
+              body * { visibility: hidden !important; }
+              #pdf-audit-report-card, #pdf-audit-report-card * { visibility: visible !important; }
+              #pdf-audit-report-card {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 24px !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+              }
+            }
+          `}</style>
           <div
+            id="pdf-audit-report-card"
             style={{
               maxWidth: '720px',
               margin: '0 auto',
