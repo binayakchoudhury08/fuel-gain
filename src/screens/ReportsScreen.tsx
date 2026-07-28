@@ -40,9 +40,19 @@ export const ReportsScreen: React.FC = () => {
   const entriesMap = useSelector((state: RootState) => state.entries.entries);
 
   const currentEmail = (profile?.email || 'default').trim().toLowerCase();
-  const allEntriesList: ProductDailyEntry[] = (Object.values(entriesMap) as ProductDailyEntry[])
-    .filter((e) => !e.userEmail || e.userEmail === currentEmail)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  // Deduplicate entries by unique date_productId key
+  const uniqueEntriesMap = new Map<string, ProductDailyEntry>();
+  (Object.values(entriesMap) as ProductDailyEntry[]).forEach((e) => {
+    if (e && (!e.userEmail || e.userEmail === currentEmail)) {
+      const dedupKey = `${e.date}_${e.productId}`;
+      uniqueEntriesMap.set(dedupKey, e);
+    }
+  });
+
+  const allEntriesList: ProductDailyEntry[] = Array.from(uniqueEntriesMap.values()).sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   // Filter State
   const [filterMode, setFilterMode] = useState<ReportFilterMode>('all');

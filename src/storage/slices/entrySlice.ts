@@ -16,10 +16,10 @@ export const entrySlice = createSlice({
     saveProductEntry: (state, action: PayloadAction<ProductDailyEntry>) => {
       const email = (action.payload.userEmail || 'default').toLowerCase().trim();
       const scopedKey = `${email}_${action.payload.date}_${action.payload.productId}`;
+      const legacyKey = `${action.payload.date}_${action.payload.productId}`;
       const entryData = { ...action.payload, userEmail: email };
+      delete state.entries[legacyKey];
       state.entries[scopedKey] = entryData;
-      // Also map standard date_productId key scoped to current active state
-      state.entries[`${action.payload.date}_${action.payload.productId}`] = entryData;
     },
     deleteProductEntry: (state, action: PayloadAction<{ date: string; productId: string; userEmail?: string }>) => {
       const email = (action.payload.userEmail || 'default').toLowerCase().trim();

@@ -49,9 +49,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigateTab 
       : { title: 'Good Evening', icon: <Moon size={16} color="#818CF8" /> };
 
   const currentEmail = (profile?.email || 'default').trim().toLowerCase();
-  const entriesList: ProductDailyEntry[] = (Object.values(entriesMap) as ProductDailyEntry[]).filter(
-    (e) => !e.userEmail || e.userEmail === currentEmail
-  );
+  
+  // Deduplicate entries by unique date_productId key
+  const uniqueDashboardEntries = new Map<string, ProductDailyEntry>();
+  (Object.values(entriesMap) as ProductDailyEntry[]).forEach((e) => {
+    if (e && (!e.userEmail || e.userEmail === currentEmail)) {
+      uniqueDashboardEntries.set(`${e.date}_${e.productId}`, e);
+    }
+  });
+
+  const entriesList: ProductDailyEntry[] = Array.from(uniqueDashboardEntries.values());
   const totalEntries = entriesList.length;
 
   const totalGainLiters = entriesList

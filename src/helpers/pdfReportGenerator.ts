@@ -299,6 +299,14 @@ export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile
     const doc = generatePdfDoc(entry, profile);
     const fileName = `FuelGain_Report_${entry?.date || 'date'}_${entry?.productId || 'product'}.pdf`;
 
+    // On Capacitor Android / Native Mobile App
+    const isNativeMobile = typeof window !== 'undefined' && (!!(window as any).Capacitor?.isNativePlatform?.() || !!(window as any).Capacitor?.platform);
+
+    if (isNativeMobile) {
+      doc.save(fileName);
+      return;
+    }
+
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -315,7 +323,7 @@ export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile
       const doc = generatePdfDoc(entry, profile);
       doc.save(`FuelGain_Report_${entry?.date || 'date'}.pdf`);
     } catch (_saveErr) {
-      alert('Unable to generate PDF download on this browser.');
+      alert('Unable to generate PDF download on this device.');
     }
   }
 }
