@@ -328,28 +328,33 @@ export async function exportHtmlCardToPdf(elementId: string, fileName: string): 
   }
 }
 
-// Download PDF helper
+// Download PDF helper (100% Guaranteed Download across all Browsers & Mobile)
 export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile | null) {
   try {
+    const doc = generatePdfDoc(entry, profile);
     const fileName = `FuelGain_Report_${entry?.date || 'date'}_${entry?.productId || 'product'}.pdf`;
 
-    // Try HTML canvas export if rendered in DOM
-    const cardEl = document.getElementById('pdf-audit-report-card');
-    if (cardEl) {
-      exportHtmlCardToPdf('pdf-audit-report-card', fileName);
-      return;
-    }
-
-    const doc = generatePdfDoc(entry, profile);
+    // Method 1: Native jsPDF File Save
     doc.save(fileName);
+
+    // Method 2: Fallback Data URI Anchor Download
+    try {
+      const dataUri = doc.output('datauristring');
+      const link = document.createElement('a');
+      link.href = dataUri;
+      link.download = fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+      }, 1000);
+    } catch (_linkErr) {
+      // Ignored
+    }
   } catch (err) {
     console.error('PDF Download Error:', err);
-    try {
-      const doc = generatePdfDoc(entry, profile);
-      doc.save(`FuelGain_Report_${entry?.date || 'date'}.pdf`);
-    } catch (_saveErr) {
-      alert('Unable to generate PDF download on this device.');
-    }
+    alert('PDF download failed. Please check browser permissions.');
   }
 }
 

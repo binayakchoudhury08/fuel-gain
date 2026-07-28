@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Share2, Printer, FileText, ExternalLink } from 'lucide-react';
 import { MD3Button } from './MD3Button';
 import type { ProductDailyEntry, UserProfile } from '../types';
-import { downloadPdfReport, getPdfBlobUrl, getPdfDataUrl, sharePdfReport, exportHtmlCardToPdf } from '../helpers/pdfReportGenerator';
+import { downloadPdfReport, getPdfBlobUrl, getPdfDataUrl, sharePdfReport } from '../helpers/pdfReportGenerator';
 
 interface PdfPreviewModalProps {
   entry: ProductDailyEntry | null;
@@ -34,14 +34,10 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
 
   const pdfDataUrl = getPdfDataUrl(entry, profile);
 
-  const handleDownload = async () => {
-    const fileName = `FuelGain_Report_${entry.date}_${entry.productId}.pdf`;
-    const ok = await exportHtmlCardToPdf('pdf-audit-report-card', fileName);
-    if (!ok) {
-      downloadPdfReport(entry, profile);
-    }
-    setNotice('PDF Report downloaded successfully!');
-    setTimeout(() => setNotice(null), 3000);
+  const handleDownload = () => {
+    downloadPdfReport(entry, profile);
+    setNotice('PDF Report downloaded! Check your Downloads folder.');
+    setTimeout(() => setNotice(null), 4000);
   };
 
   const handleShare = async () => {
