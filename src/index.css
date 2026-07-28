@@ -1,0 +1,83 @@
+/* ====================================================================
+   Fuel Gain Tracker - Native Mobile App & Web Responsive Stylesheet
+   ==================================================================== */
+
+:root {
+  --color-primary: #0ea5e9;
+  --color-primary-dark: #0284c7;
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-variant: #334155;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-card-border: #334155;
+  --color-divider: #334155;
+
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Safe Area Inset Fallbacks for Android & iOS Notch/Status Bar */
+  --safe-top: env(safe-area-inset-top, 28px);
+  --safe-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+@supports (padding-top: max(0px)) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), 28px);
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  box-sizing: border-box;
+}
+
+/* Allow text selection in inputs and text areas */
+input, textarea, select, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Smooth animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}

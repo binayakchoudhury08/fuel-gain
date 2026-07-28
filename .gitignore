@@ -1,0 +1,31 @@
+# Node modules & dependencies
+node_modules/
+.pnpm-store/
+
+# Production build output
+dist/
+build/
+
+# Environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.scc
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Capacitor & Android build outputs
+android/app/build/
+android/.gradle/
+android/app/release.keystore
+android/captures/
+ios/App/build/
+ios/App/Pods/
