@@ -6,6 +6,7 @@ import { MD3Input } from '../components/MD3Input';
 import { MD3Button } from '../components/MD3Button';
 import { MD3Card } from '../components/MD3Card';
 import { updatePersonalDetails } from '../storage/slices/userSlice';
+import { importAllEntries } from '../storage/slices/entrySlice';
 import { auditLogger } from '../services/auditLogger';
 import { supabase } from '../config/supabaseClient';
 import { accountStorage } from '../storage/accountStorage';
@@ -91,6 +92,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         isExistingUser: true,
       })
     );
+
+    // Load isolated entries specifically for this account
+    const userEntries = accountStorage.getUserEntries(data.email);
+    dispatch(importAllEntries(userEntries));
+
     auditLogger.log('Login', `User ${data.email} logged in (Remember Me: ${data.rememberMe ? 'Yes' : 'No'}).`);
     setIsLoading(false);
     onLoginSuccess();
@@ -119,6 +125,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         isExistingUser: !!existingAccount,
       })
     );
+
+    // Load isolated entries specifically for this Google account
+    const userEntries = accountStorage.getUserEntries(googleEmail);
+    dispatch(importAllEntries(userEntries));
 
     // Remember Google session permanently
     localStorage.setItem('fuel_gain_remember_me', JSON.stringify({ email: googleEmail, remember: true }));

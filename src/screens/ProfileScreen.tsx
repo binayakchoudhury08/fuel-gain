@@ -18,6 +18,9 @@ import { logout } from '../storage/slices/userSlice';
 import type { FuelProduct, PetrolCompanyCode } from '../types';
 import { COMPANY_PRODUCTS_MAP } from '../constants/companyProducts';
 
+import { clearAllEntries } from '../storage/slices/entrySlice';
+import { accountStorage } from '../storage/accountStorage';
+
 interface ProfileScreenProps {
   onLogout: () => void;
   onEditWizard: () => void;
@@ -26,9 +29,14 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onEditWizard }) => {
   const dispatch = useDispatch();
   const profile = useSelector((state: RootState) => state.user.profile);
+  const entries = useSelector((state: RootState) => state.entries.entries);
   const [notice, setNotice] = useState<string | null>(null);
 
   const handleLogoutClick = () => {
+    if (profile?.email) {
+      accountStorage.saveUserEntries(profile.email, entries);
+    }
+    dispatch(clearAllEntries());
     dispatch(logout());
     onLogout();
   };
@@ -42,17 +50,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout, onEditWi
     if (confirm('WARNING: Are you sure you want to delete your account? All local and cloud data for this account will be erased.')) {
       if (profile?.email) {
         try {
+          const emailKey = profile.email.trim().toLowerCase();
           const accountsStr = localStorage.getItem('fuel_gain_accounts_v2');
           if (accountsStr) {
             const accounts = JSON.parse(accountsStr);
-            delete accounts[profile.email.trim().toLowerCase()];
+            delete accounts[emailKey];
             localStorage.setItem('fuel_gain_accounts_v2', JSON.stringify(accounts));
           }
+          localStorage.removeItem(`fuel_gain_entries_${emailKey}`);
         } catch {
           // Ignore
         }
       }
       localStorage.removeItem('fuel_gain_remember_me');
+      dispatch(clearAllEntries());
       dispatch(logout());
       onLogout();
     }

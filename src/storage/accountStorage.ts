@@ -54,4 +54,33 @@ export const accountStorage = {
       return {};
     }
   },
+
+  /**
+   * Save daily entries specifically for a user email
+   */
+  saveUserEntries(email: string, entries: Record<string, any>): void {
+    if (!email) return;
+    try {
+      const emailKey = email.trim().toLowerCase();
+      const storageKey = `fuel_gain_entries_${emailKey}`;
+      localStorage.setItem(storageKey, JSON.stringify(entries));
+    } catch {
+      // LocalStorage quota exceeded or disabled
+    }
+  },
+
+  /**
+   * Load daily entries specifically for a user email
+   */
+  getUserEntries(email: string): Record<string, any> {
+    if (!email) return {};
+    try {
+      const emailKey = email.trim().toLowerCase();
+      const storageKey = `fuel_gain_entries_${emailKey}`;
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  },
 };

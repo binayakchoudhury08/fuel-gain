@@ -20,6 +20,7 @@ import { saveProductEntry } from '../storage/slices/entrySlice';
 import { COMPANY_PRODUCTS_MAP } from '../constants/companyProducts';
 import { dipChartParser } from '../services/dipChartParser';
 import { supabaseSyncService } from '../services/supabaseSyncService';
+import { accountStorage } from '../storage/accountStorage';
 import type { ProductDailyEntry, NozzleReading, FuelProduct, PetrolCompanyCode } from '../types';
 
 export const EntryScreen: React.FC = () => {
@@ -102,18 +103,38 @@ export const EntryScreen: React.FC = () => {
 
       {/* Expandable Product Cards */}
       {activeProducts.length > 0 ? (
-        activeProducts.map((product: FuelProduct) => (
-          <ProductEntryCard
-            key={`${selectedDate}_${product.id}`}
-            product={product}
-            date={selectedDate}
-            configuredNozzleCount={profile?.nozzleCounts?.[product.id] || 4}
-            existingEntry={existingEntries[`${selectedDate}_${product.id}`]}
-            isExpanded={!!expandedProductIds[product.id]}
-            onToggleExpand={() => toggleExpand(product.id)}
-            onSave={(entry) => dispatch(saveProductEntry(entry))}
-          />
-        ))
+        activeProducts.map((product: FuelProduct) => {
+          const userEmailKey = (profile?.email || 'default').trim().toLowerCase();
+          const scopedKey = `${userEmailKey}_${selectedDate}_${product.id}`;
+          const existingEntry =
+            existingEntries[scopedKey] ||
+            (existingEntries[`${selectedDate}_${product.id}`]?.userEmail === userEmailKey
+              ? existingEntries[`${selectedDate}_${product.id}`]
+              : undefined);
+
+          return (
+            <ProductEntryCard
+              key={`${userEmailKey}_${selectedDate}_${product.id}`}
+              product={product}
+              date={selectedDate}
+              configuredNozzleCount={profile?.nozzleCounts?.[product.id] || 4}
+              existingEntry={existingEntry}
+              isExpanded={!!expandedProductIds[product.id]}
+              onToggleExpand={() => toggleExpand(product.id)}
+              onSave={(entry) => {
+                const entryWithUser = { ...entry, userEmail: userEmailKey };
+                dispatch(saveProductEntry(entryWithUser));
+                if (profile?.email) {
+                  accountStorage.saveUserEntries(profile.email, {
+                    ...existingEntries,
+                    [scopedKey]: entryWithUser,
+                    [`${selectedDate}_${product.id}`]: entryWithUser,
+                  });
+                }
+              }}
+            />
+          );
+        })
       ) : (
         <MD3Card variant="elevated" style={{ padding: '24px', textAlign: 'center' }}>
           <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>

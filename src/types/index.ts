@@ -113,6 +113,7 @@ export interface ProductDailyEntry {
   date: string; // YYYY-MM-DD
   productId: string;
   productName: string;
+  userEmail?: string;
   
   // Step 1: Stock Receipt
   wasReceiptReceived: boolean;

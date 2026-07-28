@@ -48,7 +48,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigateTab 
       ? { title: 'Good Afternoon', icon: <Sunset size={16} color="#F97316" /> }
       : { title: 'Good Evening', icon: <Moon size={16} color="#818CF8" /> };
 
-  const entriesList: ProductDailyEntry[] = Object.values(entriesMap);
+  const currentEmail = (profile?.email || 'default').trim().toLowerCase();
+  const entriesList: ProductDailyEntry[] = (Object.values(entriesMap) as ProductDailyEntry[]).filter(
+    (e) => !e.userEmail || e.userEmail === currentEmail
+  );
   const totalEntries = entriesList.length;
 
   const totalGainLiters = entriesList

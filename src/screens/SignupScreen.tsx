@@ -8,6 +8,7 @@ import { MD3Card } from '../components/MD3Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { evaluatePasswordStrength } from '../utils/passwordStrength';
 import { updatePersonalDetails } from '../storage/slices/userSlice';
+import { clearAllEntries, importAllEntries } from '../storage/slices/entrySlice';
 import { auditLogger } from '../services/auditLogger';
 import { supabase } from '../config/supabaseClient';
 import { accountStorage } from '../storage/accountStorage';
@@ -72,6 +73,14 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
         isExistingUser: !!existingAccount,
       })
     );
+
+    if (existingAccount) {
+      const userEntries = accountStorage.getUserEntries(data.email);
+      dispatch(importAllEntries(userEntries));
+    } else {
+      dispatch(clearAllEntries());
+    }
+
     auditLogger.log('Signup', `Created new account for ${data.email}.`);
     setIsLoading(false);
     onSignupSuccess();
@@ -95,6 +104,13 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
         isExistingUser: !!existingAccount,
       })
     );
+
+    if (existingAccount) {
+      const userEntries = accountStorage.getUserEntries(googleEmail);
+      dispatch(importAllEntries(userEntries));
+    } else {
+      dispatch(clearAllEntries());
+    }
 
     // Remember Google session permanently
     localStorage.setItem('fuel_gain_remember_me', JSON.stringify({ email: googleEmail, remember: true }));

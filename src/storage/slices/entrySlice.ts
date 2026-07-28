@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { ProductDailyEntry } from '../../types';
 
 interface EntryState {
-  entries: Record<string, ProductDailyEntry>; // Key format: `${date}_${productId}`
+  entries: Record<string, ProductDailyEntry>;
 }
 
 const initialState: EntryState = {
@@ -14,12 +14,20 @@ export const entrySlice = createSlice({
   initialState,
   reducers: {
     saveProductEntry: (state, action: PayloadAction<ProductDailyEntry>) => {
-      const entryKey = `${action.payload.date}_${action.payload.productId}`;
-      state.entries[entryKey] = action.payload;
+      const email = (action.payload.userEmail || 'default').toLowerCase().trim();
+      const scopedKey = `${email}_${action.payload.date}_${action.payload.productId}`;
+      const entryData = { ...action.payload, userEmail: email };
+      state.entries[scopedKey] = entryData;
+      // Also map standard date_productId key scoped to current active state
+      state.entries[`${action.payload.date}_${action.payload.productId}`] = entryData;
     },
-    deleteProductEntry: (state, action: PayloadAction<{ date: string; productId: string }>) => {
-      const entryKey = `${action.payload.date}_${action.payload.productId}`;
-      delete state.entries[entryKey];
+    deleteProductEntry: (state, action: PayloadAction<{ date: string; productId: string; userEmail?: string }>) => {
+      const email = (action.payload.userEmail || 'default').toLowerCase().trim();
+      delete state.entries[`${email}_${action.payload.date}_${action.payload.productId}`];
+      delete state.entries[`${action.payload.date}_${action.payload.productId}`];
+    },
+    clearAllEntries: (state) => {
+      state.entries = {};
     },
     importAllEntries: (state, action: PayloadAction<Record<string, ProductDailyEntry>>) => {
       state.entries = action.payload;
@@ -27,5 +35,5 @@ export const entrySlice = createSlice({
   },
 });
 
-export const { saveProductEntry, deleteProductEntry, importAllEntries } = entrySlice.actions;
+export const { saveProductEntry, deleteProductEntry, clearAllEntries, importAllEntries } = entrySlice.actions;
 export default entrySlice.reducer;

@@ -39,10 +39,10 @@ export const ReportsScreen: React.FC = () => {
   const profile = useSelector((state: RootState) => state.user.profile);
   const entriesMap = useSelector((state: RootState) => state.entries.entries);
 
-  // Convert entries object to array sorted by date descending
-  const allEntriesList: ProductDailyEntry[] = (Object.values(entriesMap) as ProductDailyEntry[]).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const currentEmail = (profile?.email || 'default').trim().toLowerCase();
+  const allEntriesList: ProductDailyEntry[] = (Object.values(entriesMap) as ProductDailyEntry[])
+    .filter((e) => !e.userEmail || e.userEmail === currentEmail)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Filter State
   const [filterMode, setFilterMode] = useState<ReportFilterMode>('all');
