@@ -328,16 +328,46 @@ export async function exportHtmlCardToPdf(elementId: string, fileName: string): 
   }
 }
 
-// Download PDF helper (100% Guaranteed Download across all Browsers & Mobile)
-export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile | null) {
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+
+// Download PDF helper (Native Mobile App + Web Browser)
+export async function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile | null): Promise<boolean> {
+  const fileName = `FuelGain_Report_${entry?.date || 'date'}_${entry?.productId || 'product'}.pdf`;
+
   try {
     const doc = generatePdfDoc(entry, profile);
-    const fileName = `FuelGain_Report_${entry?.date || 'date'}_${entry?.productId || 'product'}.pdf`;
 
-    // Method 1: Native jsPDF File Save
+    // On Capacitor Android / iOS Mobile App
+    const isCapacitor = typeof window !== 'undefined' && (!!(window as any).Capacitor?.isNativePlatform?.() || !!(window as any).Capacitor?.platform);
+
+    if (isCapacitor) {
+      const dataUri = doc.output('datauristring');
+      const base64Data = dataUri.split(',')[1] || dataUri;
+
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+
+      try {
+        await Share.share({
+          title: `Fuel Gain Audit Report (${entry.date})`,
+          text: `Fuel Gain Audit Report for ${entry.productName} - ${entry.date}`,
+          url: savedFile.uri,
+          dialogTitle: 'Save / Share PDF Audit Report',
+        });
+      } catch (_shareErr) {
+        // Fallback alert
+      }
+      return true;
+    }
+
+    // Standard Desktop / Browser
     doc.save(fileName);
 
-    // Method 2: Fallback Data URI Anchor Download
     try {
       const dataUri = doc.output('datauristring');
       const link = document.createElement('a');
@@ -352,9 +382,17 @@ export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile
     } catch (_linkErr) {
       // Ignored
     }
+
+    return true;
   } catch (err) {
     console.error('PDF Download Error:', err);
-    alert('PDF download failed. Please check browser permissions.');
+    try {
+      const doc = generatePdfDoc(entry, profile);
+      doc.save(fileName);
+    } catch (_saveErr) {
+      alert('Unable to save PDF file on this device.');
+    }
+    return false;
   }
 }
 
@@ -373,16 +411,38 @@ export function getPdfDataUrl(entry: ProductDailyEntry, profile: UserProfile | n
 
 // Get estimated file size in KB
 export function getEstimatedPdfSizeKb(entry: ProductDailyEntry): number {
-  return Math.round(120 + entry.nozzleReadings.length * 5);
+  return Math.round(120 + (entry.nozzleReadings?.length || 0) * 5);
 }
 
-// Share PDF helper (with actual PDF file attachment)
+// Share PDF helper (with native file saving)
 export async function sharePdfReport(entry: ProductDailyEntry, profile: UserProfile | null): Promise<boolean> {
   const fileName = `FuelGain_Report_${entry.date}_${entry.productId}.pdf`;
   const summaryText = `⛽ Fuel Gain Audit Report\nStation: ${profile?.pumpName || 'Filling Station'}\nDate: ${entry.date}\nProduct: ${entry.productName}\nMeter Sale: ${entry.totalMeterSale.toFixed(1)} L\nDip Sale: ${entry.dipSale.toFixed(1)} L\nVariance: ${entry.difference > 0 ? '+' : ''}${entry.difference.toFixed(1)} L (${entry.status})`;
 
   try {
     const doc = generatePdfDoc(entry, profile);
+    const dataUri = doc.output('datauristring');
+    const base64Data = dataUri.split(',')[1] || dataUri;
+
+    const isCapacitor = typeof window !== 'undefined' && (!!(window as any).Capacitor?.isNativePlatform?.() || !!(window as any).Capacitor?.platform);
+
+    if (isCapacitor) {
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+
+      await Share.share({
+        title: `Fuel Gain Audit - ${entry.date}`,
+        text: summaryText,
+        url: savedFile.uri,
+        dialogTitle: 'Share PDF Audit Report',
+      });
+      return true;
+    }
+
     const blob = doc.output('blob');
     const pdfFile = new File([blob], fileName, { type: 'application/pdf' });
 
@@ -398,24 +458,6 @@ export async function sharePdfReport(entry: ProductDailyEntry, profile: UserProf
     // Fallback
   }
 
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: `Fuel Gain Audit - ${entry.date}`,
-        text: summaryText,
-      });
-      downloadPdfReport(entry, profile);
-      return true;
-    } catch {
-      // Fallback
-    }
-  }
-
   downloadPdfReport(entry, profile);
-  try {
-    await navigator.clipboard.writeText(summaryText);
-  } catch {
-    // Ignore
-  }
   return true;
 }
