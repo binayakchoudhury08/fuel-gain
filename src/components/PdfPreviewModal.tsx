@@ -53,7 +53,45 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      const card = document.getElementById('pdf-audit-report-card');
+      if (!card) {
+        window.print();
+        return;
+      }
+      const printWin = window.open('', '_blank', 'width=850,height=950');
+      if (printWin) {
+        printWin.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Fuel Gain Audit Report - ${entry.date}</title>
+              <style>
+                body { font-family: Inter, system-ui, sans-serif; margin: 0; padding: 20px; background: #FFFFFF; color: #1E293B; }
+                * { box-sizing: border-box; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+                th, td { padding: 8px 10px; border-bottom: 1px solid #E2E8F0; text-align: left; }
+                th { background-color: #1E293B; color: #FFFFFF; }
+              </style>
+            </head>
+            <body>
+              ${card.outerHTML}
+              <script>
+                window.onload = function() {
+                  window.print();
+                  setTimeout(function() { window.close(); }, 500);
+                };
+              </script>
+            </body>
+          </html>
+        `);
+        printWin.document.close();
+      } else {
+        window.print();
+      }
+    } catch {
+      window.print();
+    }
   };
 
   const handleOpenExternal = () => {
