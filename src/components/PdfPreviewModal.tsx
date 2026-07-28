@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Download, Share2, Printer, FileText, ExternalLink } from 'lucide-react';
 import { MD3Button } from './MD3Button';
 import type { ProductDailyEntry, UserProfile } from '../types';
-import { downloadPdfReport, getPdfBlobUrl, getPdfDataUrl, sharePdfReport } from '../helpers/pdfReportGenerator';
+import { downloadPdfReport, getPdfDataUrl, sharePdfReport } from '../helpers/pdfReportGenerator';
 
 interface PdfPreviewModalProps {
   entry: ProductDailyEntry | null;
@@ -17,28 +17,11 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen && entry) {
-      const url = getPdfBlobUrl(entry, profile);
-      setBlobUrl(url);
-      return () => {
-        if (url) URL.revokeObjectURL(url);
-      };
-    }
-  }, [isOpen, entry, profile]);
 
   if (!isOpen || !entry) return null;
 
   const pdfDataUrl = getPdfDataUrl(entry, profile);
-
-  const handleDownload = () => {
-    downloadPdfReport(entry, profile);
-    setNotice('PDF Report downloaded! Check your Downloads folder.');
-    setTimeout(() => setNotice(null), 4000);
-  };
 
   const handleShare = async () => {
     const success = await sharePdfReport(entry, profile);
@@ -87,14 +70,6 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
       }
     } catch {
       window.print();
-    }
-  };
-
-  const handleOpenExternal = () => {
-    if (blobUrl) {
-      window.open(blobUrl, '_blank');
-    } else {
-      window.open(pdfDataUrl, '_blank');
     }
   };
 
@@ -158,18 +133,36 @@ export const PdfPreviewModal: React.FC<PdfPreviewModalProps> = ({
 
           {/* Controls Bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <MD3Button variant="outline" size="sm" onClick={handleOpenExternal} leftIcon={<ExternalLink size={15} />}>
-              Open
-            </MD3Button>
+            <a
+              href={pdfDataUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none' }}
+            >
+              <MD3Button variant="outline" size="sm" leftIcon={<ExternalLink size={15} />}>
+                Open
+              </MD3Button>
+            </a>
             <MD3Button variant="outline" size="sm" onClick={handleShare} leftIcon={<Share2 size={15} />}>
               Share
             </MD3Button>
             <MD3Button variant="outline" size="sm" onClick={handlePrint} leftIcon={<Printer size={15} />}>
               Print
             </MD3Button>
-            <MD3Button variant="primary" size="sm" onClick={handleDownload} leftIcon={<Download size={15} />}>
-              Download PDF
-            </MD3Button>
+            <a
+              href={pdfDataUrl}
+              download={`FuelGain_Report_${entry.date}_${entry.productId}.pdf`}
+              style={{ textDecoration: 'none' }}
+              onClick={() => {
+                downloadPdfReport(entry, profile);
+                setNotice('Downloading PDF report directly to your device...');
+                setTimeout(() => setNotice(null), 3000);
+              }}
+            >
+              <MD3Button variant="primary" size="sm" leftIcon={<Download size={15} />}>
+                Download PDF
+              </MD3Button>
+            </a>
             <button
               onClick={onClose}
               style={{

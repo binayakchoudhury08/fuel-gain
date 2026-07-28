@@ -19,6 +19,7 @@ import { deleteProductEntry } from '../storage/slices/entrySlice';
 import {
   downloadPdfReport,
   sharePdfReport,
+  getPdfDataUrl,
   getEstimatedPdfSizeKb,
 } from '../helpers/pdfReportGenerator';
 import type { ProductDailyEntry } from '../types';
@@ -512,9 +513,16 @@ export const ReportsScreen: React.FC = () => {
                     <MD3Button variant="primary" size="sm" onClick={() => handleViewPdf(entry)} leftIcon={<Eye size={16} />}>
                       View PDF
                     </MD3Button>
-                    <MD3Button variant="outline" size="sm" onClick={() => handleDownloadPdf(entry)} leftIcon={<Download size={16} />}>
-                      Download PDF
-                    </MD3Button>
+                    <a
+                      href={getPdfDataUrl(entry, profile)}
+                      download={`FuelGain_Report_${entry.date}_${entry.productId}.pdf`}
+                      style={{ textDecoration: 'none' }}
+                      onClick={() => handleDownloadPdf(entry)}
+                    >
+                      <MD3Button variant="outline" size="sm" leftIcon={<Download size={16} />}>
+                        Download PDF
+                      </MD3Button>
+                    </a>
                     <MD3Button variant="ghost" size="sm" onClick={() => handleSharePdf(entry)} leftIcon={<Share2 size={16} />}>
                       Share PDF
                     </MD3Button>
