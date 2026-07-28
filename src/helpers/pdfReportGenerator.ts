@@ -270,7 +270,27 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
 export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile | null) {
   const doc = generatePdfDoc(entry, profile);
   const fileName = `FuelGain_Report_${entry.date}_${entry.productId}.pdf`;
-  doc.save(fileName);
+
+  try {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {
+    doc.save(fileName);
+  }
+}
+
+// Get Blob URL string for PDF modal preview
+export function getPdfBlobUrl(entry: ProductDailyEntry, profile: UserProfile | null): string {
+  const doc = generatePdfDoc(entry, profile);
+  const blob = doc.output('blob');
+  return URL.createObjectURL(blob);
 }
 
 // Get Data URI string for PDF modal preview
@@ -281,13 +301,30 @@ export function getPdfDataUrl(entry: ProductDailyEntry, profile: UserProfile | n
 
 // Get estimated file size in KB
 export function getEstimatedPdfSizeKb(entry: ProductDailyEntry): number {
-  // Estimated size based on nozzle counts and content complexity (~120KB - 160KB)
   return Math.round(120 + entry.nozzleReadings.length * 5);
 }
 
-// Share PDF helper
+// Share PDF helper (with actual PDF file attachment)
 export async function sharePdfReport(entry: ProductDailyEntry, profile: UserProfile | null): Promise<boolean> {
+  const fileName = `FuelGain_Report_${entry.date}_${entry.productId}.pdf`;
   const summaryText = `⛽ Fuel Gain Audit Report\nStation: ${profile?.pumpName || 'Filling Station'}\nDate: ${entry.date}\nProduct: ${entry.productName}\nMeter Sale: ${entry.totalMeterSale.toFixed(1)} L\nDip Sale: ${entry.dipSale.toFixed(1)} L\nVariance: ${entry.difference > 0 ? '+' : ''}${entry.difference.toFixed(1)} L (${entry.status})`;
+
+  try {
+    const doc = generatePdfDoc(entry, profile);
+    const blob = doc.output('blob');
+    const pdfFile = new File([blob], fileName, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      await navigator.share({
+        title: `Fuel Gain Audit - ${entry.date}`,
+        text: summaryText,
+        files: [pdfFile],
+      });
+      return true;
+    }
+  } catch {
+    // Fallback
+  }
 
   if (navigator.share) {
     try {
@@ -295,16 +332,18 @@ export async function sharePdfReport(entry: ProductDailyEntry, profile: UserProf
         title: `Fuel Gain Audit - ${entry.date}`,
         text: summaryText,
       });
+      downloadPdfReport(entry, profile);
       return true;
     } catch {
-      // Fallback to clipboard
+      // Fallback
     }
   }
 
+  downloadPdfReport(entry, profile);
   try {
     await navigator.clipboard.writeText(summaryText);
-    return true;
   } catch {
-    return false;
+    // Ignore
   }
+  return true;
 }
