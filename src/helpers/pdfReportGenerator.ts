@@ -15,6 +15,24 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
     format: 'a4',
   });
 
+  const safeEntry = {
+    id: entry?.id || `entry-${Date.now()}`,
+    date: entry?.date || new Date().toISOString().split('T')[0],
+    productId: entry?.productId || 'hp-ms',
+    productName: entry?.productName || 'Fuel Product',
+    totalMeterSale: typeof entry?.totalMeterSale === 'number' ? entry.totalMeterSale : (entry?.meterSale || 0),
+    dipSale: typeof entry?.dipSale === 'number' ? entry.dipSale : 0,
+    difference: typeof entry?.difference === 'number' ? entry.difference : 0,
+    status: entry?.status || 'Balanced',
+    nozzleReadings: Array.isArray(entry?.nozzleReadings) ? entry.nozzleReadings : [],
+    openingDip: typeof entry?.openingDip === 'number' ? entry.openingDip : 0,
+    closingDip: typeof entry?.closingDip === 'number' ? entry.closingDip : 0,
+    openingStock: typeof entry?.openingStock === 'number' ? entry.openingStock : 0,
+    closingStock: typeof entry?.closingStock === 'number' ? entry.closingStock : 0,
+    receiptQuantity: typeof entry?.receiptQuantity === 'number' ? entry.receiptQuantity : 0,
+    wasReceiptReceived: !!entry?.wasReceiptReceived,
+  };
+
   const pageWidth = doc.internal.pageSize.getWidth(); // 210 mm
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
@@ -48,7 +66,7 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   const createdTimeString = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   doc.setFontSize(8);
   doc.text(`Generated: ${createdTimeString}`, pageWidth - margin, y, { align: 'right' });
-  doc.text(`Doc ID: AUD-${entry.id.substring(0, 10).toUpperCase()}`, pageWidth - margin, y + 4.5, { align: 'right' });
+  doc.text(`Doc ID: AUD-${safeEntry.id.substring(0, 10).toUpperCase()}`, pageWidth - margin, y + 4.5, { align: 'right' });
 
   y += 14;
 
@@ -64,7 +82,7 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(`DAILY FUEL TANK AUDIT REPORT — ${entry.productName.toUpperCase()}`, margin + 6, y + 9);
+  doc.text(`DAILY FUEL TANK AUDIT REPORT — ${safeEntry.productName.toUpperCase()}`, margin + 6, y + 9);
   
   y += 20;
 
@@ -91,8 +109,8 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.text(`Station Manager: ${profile?.fullName || 'Rajesh Sharma'}`, col2X, y + 6);
-  doc.text(`Audit Date: ${entry.date}`, col2X, y + 11);
-  doc.text(`Fuel Product: ${entry.productName}`, col2X, y + 16);
+  doc.text(`Audit Date: ${safeEntry.date}`, col2X, y + 11);
+  doc.text(`Fuel Product: ${safeEntry.productName}`, col2X, y + 16);
 
   y += 24;
 
@@ -109,7 +127,7 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(`${entry.totalMeterSale.toFixed(1)} Litres`, margin + 4, y + 13);
+  doc.text(`${safeEntry.totalMeterSale.toFixed(1)} Litres`, margin + 4, y + 13);
 
   // Card 2: Total Dip Sale
   doc.setFillColor(240, 249, 255);
@@ -121,11 +139,11 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.text(`${entry.dipSale.toFixed(1)} Litres`, margin + cardWidth + 7, y + 13);
+  doc.text(`${safeEntry.dipSale.toFixed(1)} Litres`, margin + cardWidth + 7, y + 13);
 
   // Card 3: Difference & Status
-  const isGain = entry.difference > 0;
-  const isShortage = entry.difference < 0;
+  const isGain = safeEntry.difference > 0;
+  const isShortage = safeEntry.difference < 0;
   const statusBg = isGain ? [236, 253, 245] : isShortage ? [254, 242, 242] : [241, 245, 249];
   const statusFg = isGain ? successColor : isShortage ? dangerColor : primaryColor;
 
@@ -134,12 +152,12 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(mutedTextColor[0], mutedTextColor[1], mutedTextColor[2]);
-  doc.text(`VARIANCE STATUS: ${entry.status.toUpperCase()}`, margin + (cardWidth + 3) * 2 + 4, y + 5);
+  doc.text(`VARIANCE STATUS: ${safeEntry.status.toUpperCase()}`, margin + (cardWidth + 3) * 2 + 4, y + 5);
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(statusFg[0], statusFg[1], statusFg[2]);
-  const diffSign = entry.difference > 0 ? '+' : '';
-  doc.text(`${diffSign}${entry.difference.toFixed(1)} Litres`, margin + (cardWidth + 3) * 2 + 4, y + 13);
+  const diffSign = safeEntry.difference > 0 ? '+' : '';
+  doc.text(`${diffSign}${safeEntry.difference.toFixed(1)} Litres`, margin + (cardWidth + 3) * 2 + 4, y + 13);
 
   y += 24;
 
@@ -162,19 +180,28 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   y += 7;
 
   // Table Rows
-  entry.nozzleReadings.forEach((nozzle, index) => {
-    const rowBg = index % 2 === 0 ? 255 : 248;
-    doc.setFillColor(rowBg, rowBg, rowBg);
+  if (safeEntry.nozzleReadings.length > 0) {
+    safeEntry.nozzleReadings.forEach((nozzle, index) => {
+      const rowBg = index % 2 === 0 ? 255 : 248;
+      doc.setFillColor(rowBg, rowBg, rowBg);
+      doc.rect(margin, y, contentWidth, 6, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(nozzle.nozzleName || `Nozzle ${index + 1}`, margin + 4, y + 4.5);
+      doc.text((nozzle.openingReading || 0).toFixed(2), margin + 45, y + 4.5);
+      doc.text((nozzle.closingReading || 0).toFixed(2), margin + 95, y + 4.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text((nozzle.sale || 0).toFixed(2), margin + 145, y + 4.5);
+      y += 6;
+    });
+  } else {
+    doc.setFillColor(255, 255, 255);
     doc.rect(margin, y, contentWidth, 6, 'F');
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(nozzle.nozzleName, margin + 4, y + 4.5);
-    doc.text(nozzle.openingReading.toFixed(2), margin + 45, y + 4.5);
-    doc.text(nozzle.closingReading.toFixed(2), margin + 95, y + 4.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(nozzle.sale.toFixed(2), margin + 145, y + 4.5);
+    doc.setTextColor(mutedTextColor[0], mutedTextColor[1], mutedTextColor[2]);
+    doc.text('No individual nozzle breakdown logged for this entry.', margin + 4, y + 4.5);
     y += 6;
-  });
+  }
 
   // Total Meter Sale Footer Row
   doc.setFillColor(241, 245, 249);
@@ -183,7 +210,7 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.text('TOTAL METER SALE (Sum of Nozzles)', margin + 4, y + 5);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(`${entry.totalMeterSale.toFixed(2)} Litres`, margin + 145, y + 5);
+  doc.text(`${safeEntry.totalMeterSale.toFixed(2)} Litres`, margin + 145, y + 5);
   y += 12;
 
   // Table 2: Stock Receipt & Dip Volume Audit
@@ -203,10 +230,10 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   y += 7;
 
   const dipItems = [
-    { name: 'Opening Tank Stock', dip: `${entry.openingDip} cm`, vol: `${entry.openingStock.toLocaleString()} L` },
-    { name: 'Closing Tank Stock', dip: `${entry.closingDip} cm`, vol: `${entry.closingStock.toLocaleString()} L` },
-    { name: 'Tanker Stock Receipt Inflow', dip: entry.wasReceiptReceived ? 'Stock Received' : 'No Inflow', vol: `${entry.receiptQuantity.toLocaleString()} L` },
-    { name: 'Calculated Dip Sale (Opening - Closing + Receipt)', dip: 'Formula Calculated', vol: `${entry.dipSale.toLocaleString()} L` },
+    { name: 'Opening Tank Stock', dip: `${safeEntry.openingDip} cm`, vol: `${safeEntry.openingStock.toLocaleString()} L` },
+    { name: 'Closing Tank Stock', dip: `${safeEntry.closingDip} cm`, vol: `${safeEntry.closingStock.toLocaleString()} L` },
+    { name: 'Tanker Stock Receipt Inflow', dip: safeEntry.wasReceiptReceived ? 'Stock Received' : 'No Inflow', vol: `${safeEntry.receiptQuantity.toLocaleString()} L` },
+    { name: 'Calculated Dip Sale (Opening - Closing + Receipt)', dip: 'Formula Calculated', vol: `${safeEntry.dipSale.toLocaleString()} L` },
   ];
 
   dipItems.forEach((item, index) => {
@@ -237,11 +264,11 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text(`Meter Sale: ${entry.totalMeterSale.toFixed(1)} L   |   Dip Sale: ${entry.dipSale.toFixed(1)} L   |   Receipt: ${entry.receiptQuantity.toFixed(0)} L`, margin + 6, y + 12);
+  doc.text(`Meter Sale: ${safeEntry.totalMeterSale.toFixed(1)} L   |   Dip Sale: ${safeEntry.dipSale.toFixed(1)} L   |   Receipt: ${safeEntry.receiptQuantity.toFixed(0)} L`, margin + 6, y + 12);
   
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(statusFg[0], statusFg[1], statusFg[2]);
-  doc.text(`Net Difference (Meter Sale - Dip Sale): ${diffSign}${entry.difference.toFixed(2)} Litres  —  Status: ${entry.status.toUpperCase()}`, margin + 6, y + 17.5);
+  doc.text(`Net Difference (Meter Sale - Dip Sale): ${diffSign}${safeEntry.difference.toFixed(2)} Litres  —  Status: ${safeEntry.status.toUpperCase()}`, margin + 6, y + 17.5);
 
   // Footer Signature Block at bottom
   const footerY = 275;
@@ -268,21 +295,28 @@ export function generatePdfDoc(entry: ProductDailyEntry, profile: UserProfile | 
 
 // Download PDF helper
 export function downloadPdfReport(entry: ProductDailyEntry, profile: UserProfile | null) {
-  const doc = generatePdfDoc(entry, profile);
-  const fileName = `FuelGain_Report_${entry.date}_${entry.productId}.pdf`;
-
   try {
+    const doc = generatePdfDoc(entry, profile);
+    const fileName = `FuelGain_Report_${entry?.date || 'date'}_${entry?.productId || 'product'}.pdf`;
+
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = fileName;
+    link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch {
-    doc.save(fileName);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (err) {
+    console.error('PDF Download Error:', err);
+    try {
+      const doc = generatePdfDoc(entry, profile);
+      doc.save(`FuelGain_Report_${entry?.date || 'date'}.pdf`);
+    } catch (_saveErr) {
+      alert('Unable to generate PDF download on this browser.');
+    }
   }
 }
 
